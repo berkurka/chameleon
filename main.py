@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 # pip install pypdf2
@@ -79,55 +79,46 @@ rules = {'Rule_1' : {'type': 'simple',
 
 # # Function to Process rules
 
-# In[6]:
+# In[51]:
 
 
-df
+dfs = []
+for fn in main_dict:
+    df = pd.DataFrame([],columns=['File name', 'Rule', 'Page', 'text'])
+    fileReader = main_dict[fn]
+    pg_count = fileReader.numPages
+    doc = ''
+    # Put all pages in single string
+    for i in range(pg_count):
+        page = fileReader.getPage(i).extractText()
+        doc += page
+        
+    doc = re.sub(r"[\n\t\r]*", "", doc)
+    rule = 'Rule_1'
+    extract_texts = []
+    word = rules[rule]['contains']
+    matches = [m.start() for m in re.finditer(word, doc, re.IGNORECASE)]
+
+    for m in matches:
+        start = m - rules[rule]['n_char_before']
+        end = m + rules[rule]['n_char_after'] + len(word)
+        #print(doc[start: end])
+        extract_texts.append(doc[start: end])
+    
+    df = pd.DataFrame({"File name":fn,
+                        "Rule":rule,
+                        "Page":'x',
+                        "text":extract_texts
+                        })
+    
+    dfs.append(df)
+    
+df_final=pd.concat(dfs)    
 
 
-# In[7]:
+# In[55]:
 
 
-fn = 'FILE_1.pdf'
-fileReader = main_dict[fn]
-df = pd.DataFrame([], columns=['File name', 'Rule', 'Page', 'text'])
-pg_count = fileReader.numPages
-doc = ''
-# Put all pages in single string
-for i in range(pg_count):
-    page = fileReader.getPage(i).extractText()
-    doc += page
-doc = re.sub(r"[\n\t\r]*", "", doc)
-rule = 'Rule_1'
-extract_texts = []
-word = rules[rule]['contains']
-matches = [m.start() for m in re.finditer(word, doc, re.IGNORECASE)]
-
-for m in matches:
-    start = m - rules[rule]['n_char_before']
-    end = m + rules[rule]['n_char_after'] + len(word)
-    print(doc[start: end])
-    extract_texts.append(doc[start: end])    
-
-
-# In[8]:
-
-
-df['text'] = pd.Series(extract_texts)    
-df['File name'] = fn
-df['Rule'] = rule
-df.to_excel(OUT_PATH + 'results.xlsx', index=False)
-df
-
-
-# In[10]:
-
-
-jupyter nbconvert — to script main.ipynb
-
-
-# In[ ]:
-
-
-
+df_final.to_excel(OUT_PATH + 'results.xlsx', index=False)
+df_final
 
