@@ -8,7 +8,7 @@
 # conda install -c conda-forge pypdf2
 
 
-# In[1]:
+# In[ ]:
 
 
 import os
@@ -17,14 +17,14 @@ import pandas as pd
 import PyPDF2
 
 
-# In[2]:
+# In[ ]:
 
 
 INP_PATH = './input/'
 OUT_PATH = './output/'
 
 
-# In[3]:
+# In[ ]:
 
 
 def load_pdf_files(file_path:str):
@@ -55,7 +55,7 @@ def load_pdf_files(file_path:str):
         
 
 
-# In[4]:
+# In[ ]:
 
 
 main_dict = load_pdf_files(INP_PATH)
@@ -63,23 +63,35 @@ main_dict = load_pdf_files(INP_PATH)
 
 # # Define Rules
 
-# In[5]:
+# In[ ]:
 
 
-rules = {'Rule_1' : {'type': 'simple', 
+rules = {'simple_1' : {'type': 'simple', 
                      'contains': 'CNPJ', 
                      'case_sens': False, 
                      'n_char_before': 10, 
                      'n_char_after': 30,
-                     'all_matches': True
-                    }
-#          'Rule_2' : {'type': 'regex', }  
+                     'matches': 'First'
+                    },
+          'simple_2' : {'type': 'simple',
+                      'contains': 'CPF', 
+                      'case_sens': False, 
+                      'n_char_before': 10, 
+                      'n_char_after': 30,
+                      'matches': 'All'
+                         },
+         'regex' : {'type': 'regex',
+                      'pattern': 'taxa.{30}',
+                      'matches': 'All'
+                     },
+         
+         
 }
 
 
 # # Function to Process rules
 
-# In[51]:
+# In[ ]:
 
 
 dfs = []
@@ -88,37 +100,62 @@ for fn in main_dict:
     fileReader = main_dict[fn]
     pg_count = fileReader.numPages
     doc = ''
-    # Put all pages in single string
+    # Applying rules for each page
     for i in range(pg_count):
+        #Pdf reader
         page = fileReader.getPage(i).extractText()
-        doc += page
+        doc = page
+        doc = re.sub(r"[\n\t\r]*", "", doc)
         
-    doc = re.sub(r"[\n\t\r]*", "", doc)
-    rule = 'Rule_1'
-    extract_texts = []
-    word = rules[rule]['contains']
-    matches = [m.start() for m in re.finditer(word, doc, re.IGNORECASE)]
+        #Applying rules
+        for rule in rules:
+            extract_texts = []
+            
+            ###Simple 
+            if rules[rule]['type'] == 'simple':
+                word = rules[rule]['contains']
+                matches = [m.start() for m in re.finditer(word, doc, re.IGNORECASE)]
 
-    for m in matches:
-        start = m - rules[rule]['n_char_before']
-        end = m + rules[rule]['n_char_after'] + len(word)
-        #print(doc[start: end])
-        extract_texts.append(doc[start: end])
+                for m in matches:
+                    start = m - rules[rule]['n_char_before']
+                    end = m + rules[rule]['n_char_after'] + len(word)
+                    extract_texts.append(doc[start: end])
+                    
+            ###Regex
+            elif rules[rule]['type'] == 'regex':
+                pattern = rules[rule]['pattern']
+                matches = re.findall(r"{}".format(pattern), doc)
+                extract_texts.append(matches)
+                
+            
+            #Adding results to a temporary dataframe
+            df = pd.DataFrame({"File name":fn,
+                                "Rule":rule,
+                                "Page":i+1,
+                                "text":extract_texts
+                                })
+ 
+            #Adding results to the main dataframe
+            dfs.append(df)
     
-    df = pd.DataFrame({"File name":fn,
-                        "Rule":rule,
-                        "Page":'x',
-                        "text":extract_texts
-                        })
-    
-    dfs.append(df)
-    
-df_final=pd.concat(dfs)    
+df_final=pd.concat(dfs)
 
 
-# In[55]:
+# In[ ]:
+
+
+df_final=df_final.reset_index(drop=True)
+
+
+# In[ ]:
 
 
 df_final.to_excel(OUT_PATH + 'results.xlsx', index=False)
 df_final
+
+
+# In[ ]:
+
+
+
 
